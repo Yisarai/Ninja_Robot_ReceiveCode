@@ -53,6 +53,7 @@ QTRSensorsRC qtrrc((unsigned char[]) {36,37,38,39,40,41,42,43}, NUM_SENSORS, TIM
 const int sensorBias[NUM_SENSORS] = {237,178,178,237,237,237,299,362};
 unsigned int sensorValues[NUM_SENSORS];
 int sensorValueBiased[NUM_SENSORS] = {};
+float lineLoc = 0;
 
 //-------------------------------------    Stepper Motor    -----------------------------------//
 const int stepsPerRevolution = 200;
@@ -135,25 +136,15 @@ void setup() {
 
 //++++++++++++++++++++++++++++++++++++    COMPETITION CODE    +++++++++++++++++++++++++++++++++++++//
 void loop() {
-  if (mySerial.available()){
-    state = mySerial.read();
-    HallEffect();
-    while (raw > 200){
-    qtrrc.read(sensorValues);
-    float num = 0;
-    float den = 0;
-
-    for (unsigned char i = 0; i < NUM_SENSORS; i++) {
-
-    sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
-    num = num + sensorValueBiased[i] * i;
-    den = den + sensorValueBiased[i];
-
-    Serial.print(sensorValues[i]);
-    Serial.print('\t');
-  }
-  float lineLoc = num / den - 4.5;
   
+  if (mySerial.available()){
+    char state = char (mySerial.read());
+    Serial.print("The user entered ");
+    Serial.println(state);
+    state = mySerial.read();
+//    HallEffect();
+//    while (raw > 200){
+ 
       switch(state){
         case '1':
           PaddleBoard();
@@ -179,6 +170,11 @@ void loop() {
           WarpedWall();
           state=6;
           break;  
+                  case '9':
+          md.setM1Speed(100);
+          //Right Motor
+          md.setM2Speed(100);
+          break;  
 
         case '6':
           while (mySerial.available() == 0){
@@ -186,7 +182,7 @@ void loop() {
           }
           break;
                                    
-      }
+//      }
     }
   }
 }
@@ -249,8 +245,25 @@ void PIDControl (double Vel1,double Vel2,double Pos_des1,double Pos_des2){
   Pos_des_old2 = Pos_des2;
   error_old2 = error2;
 }
+void LineDetect() {
+    qtrrc.read(sensorValues);
+    float num = 0;
+    float den = 0;
+
+    for (unsigned char i = 0; i < NUM_SENSORS; i++) {
+
+    sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
+    num = num + sensorValueBiased[i] * i;
+    den = den + sensorValueBiased[i];
+
+    Serial.print(sensorValues[i]);
+    Serial.print('\t');
+  };
+  lineLoc = num / den - 4.5;
+}
 
 void LineFollow(){
+  LineDetect();
 //  qtrrc.read(sensorValues);
 //  float num = 0;
 //  float den = 0;
@@ -280,7 +293,8 @@ void LineFollow(){
     md.setM2Speed(-100);
     //Left Motor
     md.setM1Speed(0);
-  else if(lineLoc <= -3)
+  }
+  else if(lineLoc <= -3){
   BrakeMotor();
   }
   else {
@@ -318,6 +332,6 @@ void StepperMotor(float angle){
    Serial.print("Steps the arm will move: ");
    Serial.println(steps);
    myStepper.step(-steps);
- }
+ } 
 }
 

@@ -1,6 +1,5 @@
 #include <SoftwareSerial.h>
-char userInput;
-
+char state;
 SoftwareSerial mySerial(2,3); // RX, TX
 
 void setup() {
@@ -12,9 +11,9 @@ void setup() {
 }
  void loop (){
    if (Serial.available()) {
-    userInput = Serial.read();
+    state = Serial.read();
     Serial.print("The user entered ");
-    Serial.println(userInput);
+    Serial.println(state);
     mySerial.write(Serial.read());
     delay(50);
  }
