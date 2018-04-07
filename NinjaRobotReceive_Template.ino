@@ -53,6 +53,7 @@ QTRSensorsRC qtrrc((unsigned char[]) {36,37,38,39,40,41,42,43}, NUM_SENSORS, TIM
 const int sensorBias[NUM_SENSORS] = {237,178,178,237,237,237,299,362};
 unsigned int sensorValues[NUM_SENSORS];
 int sensorValueBiased[NUM_SENSORS] = {};
+float lineLoc = 0;
 
 //-------------------------------------    Stepper Motor    -----------------------------------//
 const int stepsPerRevolution = 200;
@@ -249,7 +250,7 @@ void LineFollow(){
     Serial.print(sensorValues[i]);
     Serial.print('\t');
   }
-  float lineLoc = num / den - 4.5;
+  lineLoc = num / den - 4.5;
   Serial.println(lineLoc);
   if (lineLoc < - 0.5) {
     Serial.println("Turn left");
@@ -290,5 +291,22 @@ void FrontRangeFinder(){
   filteredData = voltData * alpha + (1 - alpha) * filteredDataOld;
   filteredDataOld = voltData;
   sensorDistance = Af * pow(filteredData, Bf);
+}
+
+void IRSense(){
+  qtrrc.read(sensorValues);
+  float num = 0;
+  float den = 0;
+
+  for (unsigned char i = 0; i < NUM_SENSORS; i++) {
+
+    sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
+    num = num + sensorValueBiased[i] * i;
+    den = den + sensorValueBiased[i];
+
+    Serial.print(sensorValues[i]);
+    Serial.print('\t');
+  }
+  lineLoc = num / den - 4.5;
 }
 
