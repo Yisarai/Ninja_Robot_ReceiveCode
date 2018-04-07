@@ -139,6 +139,21 @@ void loop() {
     state = mySerial.read();
     HallEffect();
     while (raw > 200){
+    qtrrc.read(sensorValues);
+    float num = 0;
+    float den = 0;
+
+    for (unsigned char i = 0; i < NUM_SENSORS; i++) {
+
+    sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
+    num = num + sensorValueBiased[i] * i;
+    den = den + sensorValueBiased[i];
+
+    Serial.print(sensorValues[i]);
+    Serial.print('\t');
+  }
+  float lineLoc = num / den - 4.5;
+  
       switch(state){
         case '1':
           PaddleBoard();
@@ -178,7 +193,7 @@ void loop() {
 
 //----------------------------    User Defined Functions     -----------------------------//
 
-void BreakMotor() {
+void BrakeMotor() {
   md.setM1Brake(0);
   md.setM2Brake(0);
   md.setM3Brake(0);
@@ -192,7 +207,7 @@ void HallEffect() {
   }
 }
 
-void PIDControl (){
+void PIDControl (double Vel1,double Vel2,double Pos_des1,double Pos_des2){
   t_ms = micros();
   t = t_ms/1000000.0;                           //current time 
 
@@ -236,22 +251,22 @@ void PIDControl (){
 }
 
 void LineFollow(){
-  qtrrc.read(sensorValues);
-  float num = 0;
-  float den = 0;
-
-  for (unsigned char i = 0; i < NUM_SENSORS; i++) {
-
-    sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
-    num = num + sensorValueBiased[i] * i;
-    den = den + sensorValueBiased[i];
-
-    Serial.print(sensorValues[i]);
-    Serial.print('\t');
-  }
-  float lineLoc = num / den - 4.5;
+//  qtrrc.read(sensorValues);
+//  float num = 0;
+//  float den = 0;
+//
+//  for (unsigned char i = 0; i < NUM_SENSORS; i++) {
+//
+//    sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
+//    num = num + sensorValueBiased[i] * i;
+//    den = den + sensorValueBiased[i];
+//
+//    Serial.print(sensorValues[i]);
+//    Serial.print('\t');
+//  }
+//  float lineLoc = num / den - 4.5;
   Serial.println(lineLoc);
-  if (lineLoc < - 0.5) {
+  if (lineLoc < - 0.5 && lineLoc > -3) {
     Serial.println("Turn left");
     //Left Motor
     md.setM1Speed(100);
@@ -265,6 +280,8 @@ void LineFollow(){
     md.setM2Speed(-100);
     //Left Motor
     md.setM1Speed(0);
+  else if(lineLoc <= -3)
+  BrakeMotor();
   }
   else {
     Serial.println("Drive Straight");
@@ -290,5 +307,17 @@ void FrontRangeFinder(){
   filteredData = voltData * alpha + (1 - alpha) * filteredDataOld;
   filteredDataOld = voltData;
   sensorDistance = Af * pow(filteredData, Bf);
+}
+void StepperMotor(float angle){
+   if (Serial.available()) {
+   float angle = Serial.parseInt();
+   Serial.print("The user entered ");
+   Serial.print(angle);
+   Serial.println(" degrees");    
+   int steps = (int)angle/1.8;
+   Serial.print("Steps the arm will move: ");
+   Serial.println(steps);
+   myStepper.step(-steps);
+ }
 }
 
