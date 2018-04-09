@@ -13,14 +13,14 @@ int raw = 0;
 
 //-------------------------------------    Motor Shield    -----------------------------------//
 //Motors 1 and 2 follow the default pins mapping 
-//Motor3 - Lead Screw
+//Motor3 - Lead Screw - Negative forward, positive backwards
 unsigned char INA3 = 25;
 unsigned char INB3 = 26;
 unsigned char EN3DIAG3 = 24;
 unsigned char PWM3 = 11;
 unsigned char CS3 = A2;
 
-//Motor 4 - Top Wheels 
+//Motor 4 - Top Wheels - Positive Value Runs Backwards
 unsigned char INA4 = 29;
 unsigned char INB4 = 30;
 unsigned char EN4DIAG4 = 28;
@@ -50,15 +50,20 @@ float voltData = 0;
 #define TIMEOUT 2500
 #define EMITTER_PIN 3
 QTRSensorsRC qtrrc((unsigned char[]) {36,37,38,39,40,41,42,43}, NUM_SENSORS, TIMEOUT, EMITTER_PIN);
-const int sensorBias[NUM_SENSORS] = {237,178,178,237,237,237,299,362};
+const int sensorBias[NUM_SENSORS] = {154,117,193,154,183,224,318};
 unsigned int sensorValues[NUM_SENSORS];
 int sensorValueBiased[NUM_SENSORS] = {};
 float lineLoc = 0;
 
 //-------------------------------------    Stepper Motor    -----------------------------------//
 const int stepsPerRevolution = 200;
-Stepper myStepper(stepsPerRevolution, 46, 47, 48, 49);
+Stepper myStepper(stepsPerRevolution, 46, 47, 48, 49); // negative lowers,positive raises
 int stepperCount = 0;              // number of steps the motor has taken
+float angle;
+int pin1 = 46;
+int pin2 = 47;
+int pin3 = 48;
+int pin4 = 49;
 
 //-------------------------------------    PID Control    -----------------------------------//
 //Encoder and motor globals
@@ -125,7 +130,11 @@ void setup() {
   pinMode(frontRangeFinderPin, INPUT);
   pinMode(rearRangeFinderPin, INPUT);
   pinMode(hallEffectPin, INPUT);
-  
+  pinMode(pin1,OUTPUT);
+  pinMode(pin2,OUTPUT);
+  pinMode(pin3,OUTPUT);
+  pinMode(pin4,OUTPUT);
+   myStepper.setSpeed(10);
   // Open serial communications with computer and wait for port to open:
   Serial.begin(9600);
   md.init(); // *changed location
@@ -141,60 +150,59 @@ void loop() {
     char state = char (mySerial.read());
     Serial.print("The user entered ");
     Serial.println(state);
-//    state = mySerial.read();
 //    HallEffect();
 //    while (raw > 200){
  
       switch(state){
         case 'a':
           PaddleBoard();
-          state=2;
+          state='b';
           break;
          
         case 'b':
           WallLift();
-          state=3;
+          state='c';
           break;
          
         case 'c':
           UTurn();
-          state=4;
+          state='d';
           break;
          
         case 'd':
           RailRunner();
-          state=5;
+          state='e';
           break;    
   
         case 'e':
           WarpedWall();
-          state=6;
+          state='f';
           break;  
         case 'y':
           md.setM1Speed(100);
           //Right Motor
           md.setM2Speed(100);
           break;  
-        case 'x':
+        case 'x'://backward
           md.setM3Speed(50);
           break;  
-        case 'w':
-          md.setM3Speed(-50);
+        case 'w'://forward
+          md.setM3Speed(-100);
           break;  
         case 'z':
-          md.setM4Speed(200);
+          md.setM4Speed(50);
+          break;  
+        case 's':
+          StepperMotor(-30);//negative lowers/positive raises
           break;  
         case 'f':
           while (mySerial.available() == 0){
           //Done! Just chill here
           }
           break;
-                                   
-//      }
-    }
+      }
   }
 }
-
 //----------------------------    User Defined Functions     -----------------------------//
 
 void BrakeMotor() {
@@ -211,7 +219,7 @@ void HallEffect() {
   }
 }
 
-void PIDControl (double Vel1,double Vel2,double Pos_des1,double Pos_des2){
+void PIDControl (double Vel1,double Vel2){
   t_ms = micros();
   t = t_ms/1000000.0;                           //current time 
 
@@ -330,16 +338,25 @@ void FrontRangeFinder(){
   filteredDataOld = voltData;
   sensorDistance = Af * pow(filteredData, Bf);
 }
+
+void ShutDownStepper(){
+  digitalWrite(pin1,LOW);
+  digitalWrite(pin2,LOW);
+  digitalWrite(pin3,LOW);
+  digitalWrite(pin4,LOW);
+
+}
+
 void StepperMotor(float angle){
-   if (Serial.available()) {
-   float angle = Serial.parseInt();
+//   angle = Serial.parseInt();
    Serial.print("The user entered ");
    Serial.print(angle);
    Serial.println(" degrees");    
    int steps = (int)angle/1.8;
    Serial.print("Steps the arm will move: ");
    Serial.println(steps);
-   myStepper.step(-steps);
- } 
+   myStepper.step(steps);
 }
+
+
 

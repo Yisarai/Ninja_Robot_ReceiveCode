@@ -5,6 +5,8 @@ void UTurn() {
 while ((sensorDistance <= 5) || (lineLoc >= -3) ){   // front sensort is above floor or line is detected
 
 StepperMotor(96);   //set stepper angle from ground (-14) to 85 degrees
+  delay(3000);
+  ShutDownStepper();
 
  LineFollow();   // run line follow
  
