@@ -5,7 +5,7 @@
 #include <Stepper.h>
 #include "Encoder.h"
 
-int state = 0;
+char state = 0;
 
 //-------------------------------------    Hall Effect    -----------------------------------//
 const char hallEffectPin = A6;
@@ -13,14 +13,14 @@ int raw = 0;
 
 //-------------------------------------    Motor Shield    -----------------------------------//
 //Motors 1 and 2 follow the default pins mapping 
-//Motor3
+//Motor3 - Lead Screw
 unsigned char INA3 = 25;
 unsigned char INB3 = 26;
 unsigned char EN3DIAG3 = 24;
 unsigned char PWM3 = 11;
 unsigned char CS3 = A2;
 
-//Motor 4
+//Motor 4 - Top Wheels 
 unsigned char INA4 = 29;
 unsigned char INB4 = 30;
 unsigned char EN4DIAG4 = 28;
@@ -141,42 +141,50 @@ void loop() {
     char state = char (mySerial.read());
     Serial.print("The user entered ");
     Serial.println(state);
-    state = mySerial.read();
+//    state = mySerial.read();
 //    HallEffect();
 //    while (raw > 200){
  
       switch(state){
-        case '1':
+        case 'a':
           PaddleBoard();
           state=2;
           break;
          
-        case '2':
+        case 'b':
           WallLift();
           state=3;
           break;
          
-        case '3':
+        case 'c':
           UTurn();
           state=4;
           break;
          
-        case '4':
+        case 'd':
           RailRunner();
           state=5;
           break;    
   
-        case '5':
+        case 'e':
           WarpedWall();
           state=6;
           break;  
-                  case '9':
+        case 'y':
           md.setM1Speed(100);
           //Right Motor
           md.setM2Speed(100);
           break;  
-
-        case '6':
+        case 'x':
+          md.setM3Speed(50);
+          break;  
+        case 'w':
+          md.setM3Speed(-50);
+          break;  
+        case 'z':
+          md.setM4Speed(200);
+          break;  
+        case 'f':
           while (mySerial.available() == 0){
           //Done! Just chill here
           }

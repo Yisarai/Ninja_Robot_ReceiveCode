@@ -14,7 +14,7 @@ void setup() {
     state = Serial.read();
     Serial.print("The user entered ");
     Serial.println(state);
-    mySerial.write(Serial.read());
+    mySerial.write(state);
     delay(50);
  }
  }
