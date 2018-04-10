@@ -1,9 +1,11 @@
 void PaddleBoard(){
-  StepperMotor(-96);
-  delay(3000);
+  StepperMotor(-120);
+  delay(1000);
   ShutDownStepper();
-  while (lineLoc < -2){
-     LineDetect();
+//  LineDetect();
+  while (abs(biasSum-actualSum) < 2500){
      PIDControl (2,2);
+//     LineDetect();
    }
+   BrakeMotor();
 }

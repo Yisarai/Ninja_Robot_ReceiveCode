@@ -1,10 +1,10 @@
 void WallLift(){   
-   RearRangeFinder();
-   while (sensorDistance > 5) {//rear sensor wall follow
-     RearRangeFinder();
-     md.setM1Speed(350);
-     md.setM2Speed(-350);
-     md.setM4Speed(-100);
-   }
+  RearRangeFinder();
+  while (sensorDistance > 5) {//rear sensor wall follow
+    PIDControl (6,6);
+    md.setM4Speed(100);
+    RearRangeFinder();
+  }
+  BrakeMotor();   
 }
 

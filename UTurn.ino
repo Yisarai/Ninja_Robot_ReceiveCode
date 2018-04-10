@@ -1,14 +1,13 @@
 void UTurn() {
-  // while line sensort dectects line, run LineFollow code
-  LineDetect();
-  FrontRangeFinder();
-while ((sensorDistance <= 5) || (lineLoc >= -3) ){   // front sensort is above floor or line is detected
-
-StepperMotor(96);   //set stepper angle from ground (-14) to 85 degrees
-  delay(3000);
+  // while line sensor dectects line, run LineFollow code
+  StepperMotor(115);               //set stepper angle from ground (-14) to 85 degrees
+  delay(1000);
   ShutDownStepper();
-
- LineFollow();   // run line follow
- 
+//  FrontRangeFinder();
+  Serial.print(sensorDistance);
+  while ((mySerial.available() == 0)){    // front sensort is above floor or line is detected
+    LineFollow();                 // run line follow
+    FrontRangeFinder();
+    Serial.println(sensorDistance);
   }
 }

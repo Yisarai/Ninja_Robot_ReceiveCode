@@ -48,12 +48,16 @@ float voltData = 0;
 //-------------------------------------    IR Sensor    -----------------------------------//
 #define NUM_SENSORS 8
 #define TIMEOUT 2500
-#define EMITTER_PIN 3
+#define EMITTER_PIN 44
 QTRSensorsRC qtrrc((unsigned char[]) {36,37,38,39,40,41,42,43}, NUM_SENSORS, TIMEOUT, EMITTER_PIN);
-const int sensorBias[NUM_SENSORS] = {154,117,193,154,183,224,318};
+//const int sensorBias[NUM_SENSORS] = {154,117,193,154,183,224,318};
+const int sensorBias[NUM_SENSORS] = {417, 298, 377, 337, 299, 336, 417, 583};
 unsigned int sensorValues[NUM_SENSORS];
 int sensorValueBiased[NUM_SENSORS] = {};
-float lineLoc = 0;
+float lineLoc = -4;
+int biasSum = 0;
+int actualSum = 0;
+int sensorDiff = 0;
 
 //-------------------------------------    Stepper Motor    -----------------------------------//
 const int stepsPerRevolution = 200;
@@ -77,10 +81,10 @@ long counts2 = 0;               //Globally initialize encoder counts
 
 //Gains
 double kd1 = 0;
-double kp1 = 2;
+double kp1 = 2.2;
 double ki1 = 0;
 double kd2 = 0;
-double kp2 = 2.23;
+double kp2 = 2;
 double ki2 = 0;
 double f = 0.5;                 //frequency in Hz
 
@@ -88,6 +92,7 @@ double f = 0.5;                 //frequency in Hz
 unsigned long t_ms = 0;
 double t = 0;                 //current time
 double t_old = 0;             //previous time
+double deltaT = 0;
 
 double Pos1 = 0;               //current pos
 double Vel1 = 0;               //current velocity
@@ -177,7 +182,13 @@ void loop() {
         case 'e':
           WarpedWall();
           state='f';
-          break;  
+          break; 
+        case 'q':
+          while (mySerial.available() == 0){
+            FrontRangeFinder();
+            Serial.println(sensorDistance);
+          }
+          break;   
         case 'y':
           md.setM1Speed(100);
           //Right Motor
@@ -228,14 +239,14 @@ void PIDControl (double Vel1,double Vel2){
   Pos1 = float(counts1)*2*PI/(float(countsPerRev_motor)*GearRatio); //Position in rad
   counts2 = myEnc2.read();                            //get current counts
   Pos2 = float(counts2)*2*PI/(float(countsPerRev_motor)*GearRatio); //Position in rad
-    
+  deltaT = t-t_old;  
   // --------Position Controller----------------
   // Left Motor
   Pos_des1 = Pos_des1 + Vel1*(t-t_old);
   dErrordt1 = ((Pos_des1 - Pos1)-(Pos_des_old1 - Pos_old1))/(t-t_old);
   error1 = Pos_des1 - Pos1;
   integralError1 = integralError1 + error1*(t-t_old);
-  V1 = kp1*(Pos_des1 - Pos1)+ kd1*dErrordt1 + ki1*integralError1;
+  V1 = kp1*(Pos_des1 - Pos1)+ kd1*dErrordt1 + ki1*integralError1; 
 
   // Right Motor
   Pos_des2 = Pos_des2 + Vel2*(t-t_old);
@@ -243,15 +254,17 @@ void PIDControl (double Vel1,double Vel2){
   error2 = Pos_des2 - Pos2;
   integralError2 = integralError2 + error2*(t-t_old);
   V2 = kp2*(Pos_des2 - Pos2)+ kd2*dErrordt1 + ki2*integralError2;
-  
+    
   // ---------Motor Command---------------------                        
   M1 = V1*400.0/9.7;            //convert Voltage to motor command
   M2 = V2*400.0/9.7;            //convert Voltage to motor command
   M1 = constrain(M1,-400,400);   //constrian Motor command to -400 to 400
   M2 = constrain(M2,-400,400);   //constrian Motor command to -400 to 400
   md.setM1Speed(M1);            //Left Motor Speed
-  md.setM1Speed(M2);            //Right Motor Speed
-
+  md.setM2Speed(M2);            //Right Motor Speed
+  Serial.println(deltaT);
+//  Serial.print("\t");
+//  Serial.println(counts2);
   //save current time and position
   t_old = t;
   Pos_old1 = Pos1;
@@ -261,64 +274,58 @@ void PIDControl (double Vel1,double Vel2){
   Pos_des_old2 = Pos_des2;
   error_old2 = error2;
 }
-void LineDetect() {
-    qtrrc.read(sensorValues);
-    float num = 0;
-    float den = 0;
 
-    for (unsigned char i = 0; i < NUM_SENSORS; i++) {
+void LineDetect(){
+  qtrrc.read(sensorValues);
+  biasSum = 0;
+  actualSum = 0;
+  for (unsigned char i = 0; i < NUM_SENSORS; i++){
+    biasSum = biasSum + sensorBias[i];
+    actualSum = actualSum + sensorValues[i];
+  }
+  sensorDiff = abs(actualSum - biasSum);
+}
 
+void LocateLine() {
+  qtrrc.read(sensorValues);
+  float num = 0;
+  float den = 0;
+  for (unsigned char i = 0; i < NUM_SENSORS; i++) { 
     sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
     num = num + sensorValueBiased[i] * i;
     den = den + sensorValueBiased[i];
-
+    
     Serial.print(sensorValues[i]);
     Serial.print('\t');
-  };
+  }
   lineLoc = num / den - 4.5;
 }
 
 void LineFollow(){
-  LineDetect();
-//  qtrrc.read(sensorValues);
-//  float num = 0;
-//  float den = 0;
-//
-//  for (unsigned char i = 0; i < NUM_SENSORS; i++) {
-//
-//    sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
-//    num = num + sensorValueBiased[i] * i;
-//    den = den + sensorValueBiased[i];
-//
-//    Serial.print(sensorValues[i]);
-//    Serial.print('\t');
-//  }
-//  float lineLoc = num / den - 4.5;
+  LocateLine();
   Serial.println(lineLoc);
-  if (lineLoc < - 0.5 && lineLoc > -3) {
-    Serial.println("Turn left");
+  if (lineLoc < -0.5) {
+    Serial.println("Turn Left");
     //Left Motor
-    md.setM1Speed(100);
+    md.setM1Speed(0);
+    //Right Motor
+    md.setM2Speed(75);
+  }
+  else if(lineLoc > 0.5){
+      Serial.println("Drive Straight");
+    //Left Motor
+    md.setM1Speed(75);
     //Right Motor
     md.setM2Speed(0);
   }
-  else if (lineLoc > 0.5) {
-    Serial.println("Turn Right");
+  else if (lineLoc >= 2){
 
-       //Right Motor
-    md.setM2Speed(-100);
-    //Left Motor
-    md.setM1Speed(0);
-  }
-  else if(lineLoc <= -3){
-  BrakeMotor();
   }
   else {
-    Serial.println("Drive Straight");
     //Left Motor
-    md.setM1Speed(45);
+    md.setM1Speed(75);
     //Right Motor
-    md.setM2Speed(-45);
+    md.setM2Speed(75);
   }
   delay(10);
 }
