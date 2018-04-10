@@ -5,7 +5,7 @@
 #include <Stepper.h>
 #include "Encoder.h"
 
-int state = 0;
+char state = 0;
 
 //-------------------------------------    Hall Effect    -----------------------------------//
 const char hallEffectPin = A6;
@@ -13,14 +13,14 @@ int raw = 0;
 
 //-------------------------------------    Motor Shield    -----------------------------------//
 //Motors 1 and 2 follow the default pins mapping 
-//Motor3
+//Motor3 - Lead Screw - Negative forward, positive backwards
 unsigned char INA3 = 25;
 unsigned char INB3 = 26;
 unsigned char EN3DIAG3 = 24;
 unsigned char PWM3 = 11;
 unsigned char CS3 = A2;
 
-//Motor 4
+//Motor 4 - Top Wheels - Positive Value Runs Backwards
 unsigned char INA4 = 29;
 unsigned char INB4 = 30;
 unsigned char EN4DIAG4 = 28;
@@ -48,17 +48,25 @@ float voltData = 0;
 //-------------------------------------    IR Sensor    -----------------------------------//
 #define NUM_SENSORS 8
 #define TIMEOUT 2500
-#define EMITTER_PIN 3
+#define EMITTER_PIN 44
 QTRSensorsRC qtrrc((unsigned char[]) {36,37,38,39,40,41,42,43}, NUM_SENSORS, TIMEOUT, EMITTER_PIN);
-const int sensorBias[NUM_SENSORS] = {237,178,178,237,237,237,299,362};
+//const int sensorBias[NUM_SENSORS] = {154,117,193,154,183,224,318};
+const int sensorBias[NUM_SENSORS] = {460, 328, 386, 338, 262, 299, 338, 510};
 unsigned int sensorValues[NUM_SENSORS];
 int sensorValueBiased[NUM_SENSORS] = {};
-float lineLoc = 0;
+float lineLoc = -4;
+int biasSum = 0;
+int actualSum = 0;
 
 //-------------------------------------    Stepper Motor    -----------------------------------//
 const int stepsPerRevolution = 200;
-Stepper myStepper(stepsPerRevolution, 46, 47, 48, 49);
+Stepper myStepper(stepsPerRevolution, 46, 47, 48, 49); // negative lowers,positive raises
 int stepperCount = 0;              // number of steps the motor has taken
+float angle;
+int pin1 = 46;
+int pin2 = 47;
+int pin3 = 48;
+int pin4 = 49;
 
 //-------------------------------------    PID Control    -----------------------------------//
 //Encoder and motor globals
@@ -125,7 +133,11 @@ void setup() {
   pinMode(frontRangeFinderPin, INPUT);
   pinMode(rearRangeFinderPin, INPUT);
   pinMode(hallEffectPin, INPUT);
-  
+  pinMode(pin1,OUTPUT);
+  pinMode(pin2,OUTPUT);
+  pinMode(pin3,OUTPUT);
+  pinMode(pin4,OUTPUT);
+   myStepper.setSpeed(10);
   // Open serial communications with computer and wait for port to open:
   Serial.begin(9600);
   md.init(); // *changed location
@@ -136,50 +148,67 @@ void setup() {
 
 //++++++++++++++++++++++++++++++++++++    COMPETITION CODE    +++++++++++++++++++++++++++++++++++++//
 void loop() {
+  
   if (mySerial.available()){
-    state = mySerial.read();
-    HallEffect();
-    while (raw > 200){
+    char state = char (mySerial.read());
+    Serial.print("The user entered ");
+    Serial.println(state);
+//    HallEffect();
+//    while (raw > 200){
+ 
       switch(state){
-        case '1':
+        case 'a':
           PaddleBoard();
-          state=2;
+          state='b';
           break;
          
-        case '2':
+        case 'b':
           WallLift();
-          state=3;
+          state='c';
           break;
          
-        case '3':
+        case 'c':
           UTurn();
-          state=4;
+          state='d';
           break;
          
-        case '4':
+        case 'd':
           RailRunner();
-          state=5;
+          state='e';
           break;    
   
-        case '5':
+        case 'e':
           WarpedWall();
-          state=6;
+          state='f';
           break;  
-
-        case '6':
+        case 'y':
+          md.setM1Speed(100);
+          //Right Motor
+          md.setM2Speed(100);
+          break;  
+        case 'x'://backward
+          md.setM3Speed(50);
+          break;  
+        case 'w'://forward
+          md.setM3Speed(-100);
+          break;  
+        case 'z':
+          md.setM4Speed(50);
+          break;  
+        case 's':
+          StepperMotor(-30);//negative lowers/positive raises
+          break;  
+        case 'f':
           while (mySerial.available() == 0){
           //Done! Just chill here
           }
           break;
-                                   
       }
-    }
   }
 }
-
 //----------------------------    User Defined Functions     -----------------------------//
 
-void BreakMotor() {
+void BrakeMotor() {
   md.setM1Brake(0);
   md.setM2Brake(0);
   md.setM3Brake(0);
@@ -193,7 +222,7 @@ void HallEffect() {
   }
 }
 
-void PIDControl (){
+void PIDControl (double Vel1,double Vel2){
   t_ms = micros();
   t = t_ms/1000000.0;                           //current time 
 
@@ -209,7 +238,7 @@ void PIDControl (){
   dErrordt1 = ((Pos_des1 - Pos1)-(Pos_des_old1 - Pos_old1))/(t-t_old);
   error1 = Pos_des1 - Pos1;
   integralError1 = integralError1 + error1*(t-t_old);
-  V1 = kp1*(Pos_des1 - Pos1)+ kd1*dErrordt1 + ki1*integralError1;
+  V1 = kp1*(Pos_des1 - Pos1)+ kd1*dErrordt1 + ki1*integralError1; 
 
   // Right Motor
   Pos_des2 = Pos_des2 + Vel2*(t-t_old);
@@ -217,14 +246,14 @@ void PIDControl (){
   error2 = Pos_des2 - Pos2;
   integralError2 = integralError2 + error2*(t-t_old);
   V2 = kp2*(Pos_des2 - Pos2)+ kd2*dErrordt1 + ki2*integralError2;
-  
+    
   // ---------Motor Command---------------------                        
   M1 = V1*400.0/9.7;            //convert Voltage to motor command
   M2 = V2*400.0/9.7;            //convert Voltage to motor command
   M1 = constrain(M1,-400,400);   //constrian Motor command to -400 to 400
   M2 = constrain(M2,-400,400);   //constrian Motor command to -400 to 400
   md.setM1Speed(M1);            //Left Motor Speed
-  md.setM1Speed(M2);            //Right Motor Speed
+  md.setM2Speed(M2);            //Right Motor Speed
 
   //save current time and position
   t_old = t;
@@ -236,43 +265,58 @@ void PIDControl (){
   error_old2 = error2;
 }
 
-void LineFollow(){
+void LineDetect(){
+  qtrrc.read(sensorValues);
+  biasSum = 0;
+  actualSum = 0;
+  for (unsigned char i = 0; i < NUM_SENSORS; i++){
+    biasSum = biasSum + sensorBias[i];
+    actualSum = actualSum + sensorValues[i];
+  }
+}
+
+void LocateLine() {
   qtrrc.read(sensorValues);
   float num = 0;
   float den = 0;
-
-  for (unsigned char i = 0; i < NUM_SENSORS; i++) {
-
+  for (unsigned char i = 0; i < NUM_SENSORS; i++) { 
     sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
     num = num + sensorValueBiased[i] * i;
     den = den + sensorValueBiased[i];
-
+    
     Serial.print(sensorValues[i]);
     Serial.print('\t');
   }
   lineLoc = num / den - 4.5;
+}
+
+void LineFollow(){
+  LineDetect();
+  LocateLine();
   Serial.println(lineLoc);
-  if (lineLoc < - 0.5) {
-    Serial.println("Turn left");
+  if (lineLoc < - 0.5 & abs(biasSum-actualSum) > 1500) {
+    Serial.println("Turn Right");
     //Left Motor
     md.setM1Speed(100);
     //Right Motor
     md.setM2Speed(0);
   }
-  else if (lineLoc > 0.5) {
-    Serial.println("Turn Right");
-
-       //Right Motor
-    md.setM2Speed(-100);
+  else if (lineLoc > 0.5 & abs(biasSum-actualSum) > 1500) {
+    Serial.println("Turn Left");
+    //Right Motor
+    md.setM2Speed(100);
     //Left Motor
     md.setM1Speed(0);
+  }
+  else if(abs(biasSum-actualSum) < 1500){
+  BrakeMotor();
   }
   else {
     Serial.println("Drive Straight");
     //Left Motor
     md.setM1Speed(45);
     //Right Motor
-    md.setM2Speed(-45);
+    md.setM2Speed(45);
   }
   delay(10);
 }
@@ -293,20 +337,24 @@ void FrontRangeFinder(){
   sensorDistance = Af * pow(filteredData, Bf);
 }
 
-void IRSense(){
-  qtrrc.read(sensorValues);
-  float num = 0;
-  float den = 0;
+void ShutDownStepper(){
+  digitalWrite(pin1,LOW);
+  digitalWrite(pin2,LOW);
+  digitalWrite(pin3,LOW);
+  digitalWrite(pin4,LOW);
 
-  for (unsigned char i = 0; i < NUM_SENSORS; i++) {
-
-    sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
-    num = num + sensorValueBiased[i] * i;
-    den = den + sensorValueBiased[i];
-
-    Serial.print(sensorValues[i]);
-    Serial.print('\t');
-  }
-  lineLoc = num / den - 4.5;
 }
+
+void StepperMotor(float angle){
+//   angle = Serial.parseInt();
+   Serial.print("The user entered ");
+   Serial.print(angle);
+   Serial.println(" degrees");    
+   int steps = (int)angle/1.8;
+   Serial.print("Steps the arm will move: ");
+   Serial.println(steps);
+   myStepper.step(steps);
+}
+
+
 
