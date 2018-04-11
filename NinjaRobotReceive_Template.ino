@@ -80,13 +80,14 @@ long counts1 = 0;               //Globally initialize encoder counts
 long counts2 = 0;               //Globally initialize encoder counts
 
 //Gains
-double kd1 = 0;
-double kp1 = 2.2;
-double ki1 = 0;
-double kd2 = 0;
-double kp2 = 2;
-double ki2 = 0;
-double f = 0.5;                 //frequency in Hz
+double kp1 = 80;
+double kd1 = 1.25;
+double ki1 = 0.5;
+
+double kp2 = 80;
+double kd2 = 1.25;
+double ki2 = 0.5;
+// double f = 0.5;                 //frequency in Hz
 
 //time variables 
 unsigned long t_ms = 0;
@@ -240,6 +241,7 @@ void PIDControl (double Vel1,double Vel2){
   counts2 = myEnc2.read();                            //get current counts
   Pos2 = float(counts2)*2*PI/(float(countsPerRev_motor)*GearRatio); //Position in rad
   deltaT = t-t_old;  
+  
   // --------Position Controller----------------
   // Left Motor
   Pos_des1 = Pos_des1 + Vel1*(t-t_old);
@@ -253,7 +255,7 @@ void PIDControl (double Vel1,double Vel2){
   dErrordt2 = ((Pos_des2 - Pos2)-(Pos_des_old2 - Pos_old2))/(t-t_old);
   error2 = Pos_des2 - Pos2;
   integralError2 = integralError2 + error2*(t-t_old);
-  V2 = kp2*(Pos_des2 - Pos2)+ kd2*dErrordt1 + ki2*integralError2;
+  V2 = kp2*(Pos_des2 - Pos2)+ kd2*dErrordt2 + ki2*integralError2;
     
   // ---------Motor Command---------------------                        
   M1 = V1*400.0/9.7;            //convert Voltage to motor command
@@ -262,9 +264,14 @@ void PIDControl (double Vel1,double Vel2){
   M2 = constrain(M2,-400,400);   //constrian Motor command to -400 to 400
   md.setM1Speed(M1);            //Left Motor Speed
   md.setM2Speed(M2);            //Right Motor Speed
-  Serial.println(deltaT);
+//  Serial.print(t);
 //  Serial.print("\t");
-//  Serial.println(counts2);
+  Serial.print(Pos1);
+  Serial.print("\t");
+  Serial.print(Pos2);
+  Serial.print("\t");
+  Serial.println();
+
   //save current time and position
   t_old = t;
   Pos_old1 = Pos1;
