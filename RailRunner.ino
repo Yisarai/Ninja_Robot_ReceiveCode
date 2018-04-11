@@ -1,13 +1,14 @@
 void RailRunner(){
   FrontRangeFinder();
   LineDetect();
-  while (lineLoc < -3)
+  LocateLine();
+  while (sensorDiff < 2500 && lineLoc <= -1)
   {
     md.setM3Speed(250);
-    if (sensorDistance < 5)
+    if (sensorDistance < 10)
     {
       Serial.println("Drive Straight");
-      PIDControl(100,100);
+      PIDControl(2,2);
     };
   };
 }

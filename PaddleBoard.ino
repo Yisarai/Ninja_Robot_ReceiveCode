@@ -1,11 +1,14 @@
 void PaddleBoard(){
-  StepperMotor(-120);
+  StepperMotor(-115);
   delay(1000);
   ShutDownStepper();
-//  LineDetect();
-  while (abs(biasSum-actualSum) < 2500){
+  LineDetect();
+  LocateLine();
+  while (mySerial.available() == 0){
+//  while (sensorDiff < 3000 || lineLoc <= -1){
      PIDControl (2,2);
-//     LineDetect();
+     LineDetect();
+     LocateLine();
    }
    BrakeMotor();
 }
