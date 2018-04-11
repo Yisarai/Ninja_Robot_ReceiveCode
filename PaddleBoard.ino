@@ -4,8 +4,8 @@ void PaddleBoard(){
   ShutDownStepper();
   LineDetect();
   LocateLine();
-  while (mySerial.available() == 0){
-//  while (sensorDiff < 3000 || lineLoc <= -1){
+  t_old=millis()/1000;
+  while (sensorDiff < 3000 || lineLoc <= -1 || Pos1 < 25){
      PIDControl (2,2);
      LineDetect();
      LocateLine();

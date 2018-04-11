@@ -50,8 +50,8 @@ float voltData = 0;
 #define TIMEOUT 2500
 #define EMITTER_PIN 44
 QTRSensorsRC qtrrc((unsigned char[]) {36,37,38,39,40,41,42,43}, NUM_SENSORS, TIMEOUT, EMITTER_PIN);
-//const int sensorBias[NUM_SENSORS] = {154,117,193,154,183,224,318};
-const int sensorBias[NUM_SENSORS] = {417, 298, 377, 337, 299, 336, 417, 583};
+const int sensorBias[NUM_SENSORS] = {154,117,193,154,183,224,318};
+//const int sensorBias[NUM_SENSORS] = {417, 298, 377, 337, 299, 336, 417, 583};
 unsigned int sensorValues[NUM_SENSORS];
 int sensorValueBiased[NUM_SENSORS] = {};
 float lineLoc = -4;
@@ -80,13 +80,13 @@ long counts1 = 0;               //Globally initialize encoder counts
 long counts2 = 0;               //Globally initialize encoder counts
 
 //Gains
-double kp1 = 80;
-double kd1 = 1.25;
-double ki1 = 0.5;
+double kp1 = 40;
+double kd1 = 0;
+double ki1 = 0;
 
-double kp2 = 80;
-double kd2 = 1.25;
-double ki2 = 0.5;
+double kp2 = 40;
+double kd2 = 0;
+double ki2 = 0;
 // double f = 0.5;                 //frequency in Hz
 
 //time variables 
@@ -106,7 +106,7 @@ double Pos_old2 = 0;           //previous pos
 //CONTROL VARIABLES
 double Pos_des_old1 = 0;           
 double error_old1 = 0.0;
-double Pos_des1 = 0;
+double Pos_des1 = PI;
 double error1 = 0.0;
 double dErrordt1 = 0;
 double integralError1 = 0;
@@ -115,7 +115,7 @@ float V1 = 0;
 
 double Pos_des_old2 = 0;           
 double error_old2 = 0.0;
-double Pos_des2 = 0;
+double Pos_des2 = PI;
 double error2 = 0.0;
 double dErrordt2 = 0;
 double integralError2 = 0;
@@ -132,6 +132,7 @@ SoftwareSerial mySerial(52, 53); // RX, TX
 
 //+++++++++++++++++++++++++++++++++++++    COMPETITION SETUP    ++++++++++++++++++++++++++++++++++//
 void setup() {
+  delay(5000);
   //Setup pins
   pinMode(frontRangeFinderPin, INPUT);
   pinMode(rearRangeFinderPin, INPUT);
@@ -158,7 +159,7 @@ void loop() {
     Serial.println(state);
 //    HallEffect();
 //    while (raw > 200){
- 
+// 
       switch(state){
         case 'a':
           PaddleBoard();
@@ -205,7 +206,7 @@ void loop() {
           md.setM4Speed(50);
           break;  
         case 's':
-          StepperMotor(-30);//negative lowers/positive raises
+          StepperMotor(30);//negative lowers/positive raises
           break;  
         case 'f':
           while (mySerial.available() == 0){
@@ -215,6 +216,7 @@ void loop() {
       }
   }
 }
+//}
 //----------------------------    User Defined Functions     -----------------------------//
 
 void BrakeMotor() {
@@ -245,7 +247,7 @@ void PIDControl (double Vel1,double Vel2){
   // --------Position Controller----------------
   // Left Motor
   Pos_des1 = Pos_des1 + Vel1*(t-t_old);
-  dErrordt1 = ((Pos_des1 - Pos1)-(Pos_des_old1 - Pos_old1))/(t-t_old);
+  dErrordt1 =((Pos_des1 - Pos1)-(Pos_des_old1 - Pos_old1))/(t-t_old);
   error1 = Pos_des1 - Pos1;
   integralError1 = integralError1 + error1*(t-t_old);
   V1 = kp1*(Pos_des1 - Pos1)+ kd1*dErrordt1 + ki1*integralError1; 
@@ -266,9 +268,10 @@ void PIDControl (double Vel1,double Vel2){
   md.setM2Speed(M2);            //Right Motor Speed
 //  Serial.print(t);
 //  Serial.print("\t");
-  Serial.print(Pos1);
+
+  Serial.print(Pos_des1);
   Serial.print("\t");
-  Serial.print(Pos2);
+  Serial.print(Pos1);
   Serial.print("\t");
   Serial.println();
 
@@ -302,24 +305,24 @@ void LocateLine() {
     num = num + sensorValueBiased[i] * i;
     den = den + sensorValueBiased[i];
     
-    Serial.print(sensorValues[i]);
-    Serial.print('\t');
+//    Serial.print(sensorValues[i]);
+//    Serial.print('\t');
   }
   lineLoc = num / den - 4.5;
 }
 
 void LineFollow(){
   LocateLine();
-  Serial.println(lineLoc);
+//  Serial.println(lineLoc);
   if (lineLoc < -0.5) {
-    Serial.println("Turn Left");
+//    Serial.println("Turn Left");
     //Left Motor
     md.setM1Speed(0);
     //Right Motor
     md.setM2Speed(75);
   }
   else if(lineLoc > 0.5){
-      Serial.println("Drive Straight");
+//      Serial.println("Drive Straight");
     //Left Motor
     md.setM1Speed(75);
     //Right Motor
