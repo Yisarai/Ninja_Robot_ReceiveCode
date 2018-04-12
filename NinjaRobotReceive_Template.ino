@@ -5,7 +5,7 @@
 #include <Stepper.h>
 #include "Encoder.h"
 
-char state = 0;
+int state = 0;
 
 //-------------------------------------    Hall Effect    -----------------------------------//
 const char hallEffectPin = A6;
@@ -13,14 +13,14 @@ int raw = 0;
 
 //-------------------------------------    Motor Shield    -----------------------------------//
 //Motors 1 and 2 follow the default pins mapping 
-//Motor3 - Lead Screw - Negative forward, positive backwards
+//Motor3
 unsigned char INA3 = 25;
 unsigned char INB3 = 26;
 unsigned char EN3DIAG3 = 24;
 unsigned char PWM3 = 11;
 unsigned char CS3 = A2;
 
-//Motor 4 - Top Wheels - Positive Value Runs Backwards
+//Motor 4
 unsigned char INA4 = 29;
 unsigned char INB4 = 30;
 unsigned char EN4DIAG4 = 28;
@@ -48,26 +48,17 @@ float voltData = 0;
 //-------------------------------------    IR Sensor    -----------------------------------//
 #define NUM_SENSORS 8
 #define TIMEOUT 2500
-#define EMITTER_PIN 44
+#define EMITTER_PIN 3
 QTRSensorsRC qtrrc((unsigned char[]) {36,37,38,39,40,41,42,43}, NUM_SENSORS, TIMEOUT, EMITTER_PIN);
-const int sensorBias[NUM_SENSORS] = {154,117,193,154,183,224,318};
-//const int sensorBias[NUM_SENSORS] = {417, 298, 377, 337, 299, 336, 417, 583};
+const int sensorBias[NUM_SENSORS] = {237,178,178,237,237,237,299,362};
 unsigned int sensorValues[NUM_SENSORS];
 int sensorValueBiased[NUM_SENSORS] = {};
-float lineLoc = -4;
-int biasSum = 0;
-int actualSum = 0;
-int sensorDiff = 0;
+float lineLoc = 0;
 
 //-------------------------------------    Stepper Motor    -----------------------------------//
 const int stepsPerRevolution = 200;
-Stepper myStepper(stepsPerRevolution, 46, 47, 48, 49); // negative lowers,positive raises
+Stepper myStepper(stepsPerRevolution, 46, 47, 48, 49);
 int stepperCount = 0;              // number of steps the motor has taken
-float angle;
-int pin1 = 46;
-int pin2 = 47;
-int pin3 = 48;
-int pin4 = 49;
 
 //-------------------------------------    PID Control    -----------------------------------//
 //Encoder and motor globals
@@ -80,20 +71,18 @@ long counts1 = 0;               //Globally initialize encoder counts
 long counts2 = 0;               //Globally initialize encoder counts
 
 //Gains
-double kp1 = 40;
 double kd1 = 0;
+double kp1 = 2;
 double ki1 = 0;
-
-double kp2 = 40;
 double kd2 = 0;
+double kp2 = 2.23;
 double ki2 = 0;
-// double f = 0.5;                 //frequency in Hz
+double f = 0.5;                 //frequency in Hz
 
 //time variables 
 unsigned long t_ms = 0;
 double t = 0;                 //current time
 double t_old = 0;             //previous time
-double deltaT = 0;
 
 double Pos1 = 0;               //current pos
 double Vel1 = 0;               //current velocity
@@ -106,7 +95,7 @@ double Pos_old2 = 0;           //previous pos
 //CONTROL VARIABLES
 double Pos_des_old1 = 0;           
 double error_old1 = 0.0;
-double Pos_des1 = PI;
+double Pos_des1 = 0;
 double error1 = 0.0;
 double dErrordt1 = 0;
 double integralError1 = 0;
@@ -115,7 +104,7 @@ float V1 = 0;
 
 double Pos_des_old2 = 0;           
 double error_old2 = 0.0;
-double Pos_des2 = PI;
+double Pos_des2 = 0;
 double error2 = 0.0;
 double dErrordt2 = 0;
 double integralError2 = 0;
@@ -132,16 +121,11 @@ SoftwareSerial mySerial(52, 53); // RX, TX
 
 //+++++++++++++++++++++++++++++++++++++    COMPETITION SETUP    ++++++++++++++++++++++++++++++++++//
 void setup() {
-  delay(5000);
   //Setup pins
   pinMode(frontRangeFinderPin, INPUT);
   pinMode(rearRangeFinderPin, INPUT);
   pinMode(hallEffectPin, INPUT);
-  pinMode(pin1,OUTPUT);
-  pinMode(pin2,OUTPUT);
-  pinMode(pin3,OUTPUT);
-  pinMode(pin4,OUTPUT);
-   myStepper.setSpeed(10);
+  
   // Open serial communications with computer and wait for port to open:
   Serial.begin(9600);
   md.init(); // *changed location
@@ -157,66 +141,52 @@ void loop() {
     char state = char (mySerial.read());
     Serial.print("The user entered ");
     Serial.println(state);
+    state = mySerial.read();
 //    HallEffect();
 //    while (raw > 200){
-// 
+ 
       switch(state){
-        case 'a':
+        case '1':
           PaddleBoard();
-          state='b';
+          state=2;
           break;
          
-        case 'b':
+        case '2':
           WallLift();
-          state='c';
+          state=3;
           break;
          
-        case 'c':
+        case '3':
           UTurn();
-          state='d';
+          state=4;
           break;
          
-        case 'd':
+        case '4':
           RailRunner();
-          state='e';
+          state=5;
           break;    
   
-        case 'e':
+        case '5':
           WarpedWall();
-          state='f';
-          break; 
-        case 'q':
-          while (mySerial.available() == 0){
-            FrontRangeFinder();
-            Serial.println(sensorDistance);
-          }
-          break;   
-        case 'y':
+          state=6;
+          break;  
+                  case '9':
           md.setM1Speed(100);
           //Right Motor
           md.setM2Speed(100);
           break;  
-        case 'x'://backward
-          md.setM3Speed(50);
-          break;  
-        case 'w'://forward
-          md.setM3Speed(-100);
-          break;  
-        case 'z':
-          md.setM4Speed(50);
-          break;  
-        case 's':
-          StepperMotor(30);//negative lowers/positive raises
-          break;  
-        case 'f':
+
+        case '6':
           while (mySerial.available() == 0){
           //Done! Just chill here
           }
           break;
-      }
+                                   
+//      }
+    }
   }
 }
-//}
+
 //----------------------------    User Defined Functions     -----------------------------//
 
 void BrakeMotor() {
@@ -233,7 +203,7 @@ void HallEffect() {
   }
 }
 
-void PIDControl (double Vel1,double Vel2){
+void PIDControl (double Vel1,double Vel2,double Pos_des1,double Pos_des2){
   t_ms = micros();
   t = t_ms/1000000.0;                           //current time 
 
@@ -242,38 +212,29 @@ void PIDControl (double Vel1,double Vel2){
   Pos1 = float(counts1)*2*PI/(float(countsPerRev_motor)*GearRatio); //Position in rad
   counts2 = myEnc2.read();                            //get current counts
   Pos2 = float(counts2)*2*PI/(float(countsPerRev_motor)*GearRatio); //Position in rad
-  deltaT = t-t_old;  
-  
+    
   // --------Position Controller----------------
   // Left Motor
   Pos_des1 = Pos_des1 + Vel1*(t-t_old);
-  dErrordt1 =((Pos_des1 - Pos1)-(Pos_des_old1 - Pos_old1))/(t-t_old);
+  dErrordt1 = ((Pos_des1 - Pos1)-(Pos_des_old1 - Pos_old1))/(t-t_old);
   error1 = Pos_des1 - Pos1;
   integralError1 = integralError1 + error1*(t-t_old);
-  V1 = kp1*(Pos_des1 - Pos1)+ kd1*dErrordt1 + ki1*integralError1; 
+  V1 = kp1*(Pos_des1 - Pos1)+ kd1*dErrordt1 + ki1*integralError1;
 
   // Right Motor
   Pos_des2 = Pos_des2 + Vel2*(t-t_old);
   dErrordt2 = ((Pos_des2 - Pos2)-(Pos_des_old2 - Pos_old2))/(t-t_old);
   error2 = Pos_des2 - Pos2;
   integralError2 = integralError2 + error2*(t-t_old);
-  V2 = kp2*(Pos_des2 - Pos2)+ kd2*dErrordt2 + ki2*integralError2;
-    
+  V2 = kp2*(Pos_des2 - Pos2)+ kd2*dErrordt1 + ki2*integralError2;
+  
   // ---------Motor Command---------------------                        
   M1 = V1*400.0/9.7;            //convert Voltage to motor command
   M2 = V2*400.0/9.7;            //convert Voltage to motor command
   M1 = constrain(M1,-400,400);   //constrian Motor command to -400 to 400
   M2 = constrain(M2,-400,400);   //constrian Motor command to -400 to 400
   md.setM1Speed(M1);            //Left Motor Speed
-  md.setM2Speed(M2);            //Right Motor Speed
-//  Serial.print(t);
-//  Serial.print("\t");
-
-  Serial.print(Pos_des1);
-  Serial.print("\t");
-  Serial.print(Pos1);
-  Serial.print("\t");
-  Serial.println();
+  md.setM1Speed(M2);            //Right Motor Speed
 
   //save current time and position
   t_old = t;
@@ -284,58 +245,64 @@ void PIDControl (double Vel1,double Vel2){
   Pos_des_old2 = Pos_des2;
   error_old2 = error2;
 }
+void LineDetect() {
+    qtrrc.read(sensorValues);
+    float num = 0;
+    float den = 0;
 
-void LineDetect(){
-  qtrrc.read(sensorValues);
-  biasSum = 0;
-  actualSum = 0;
-  for (unsigned char i = 0; i < NUM_SENSORS; i++){
-    biasSum = biasSum + sensorBias[i];
-    actualSum = actualSum + sensorValues[i];
-  }
-  sensorDiff = abs(actualSum - biasSum);
-}
+    for (unsigned char i = 0; i < NUM_SENSORS; i++) {
 
-void LocateLine() {
-  qtrrc.read(sensorValues);
-  float num = 0;
-  float den = 0;
-  for (unsigned char i = 0; i < NUM_SENSORS; i++) { 
     sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
     num = num + sensorValueBiased[i] * i;
     den = den + sensorValueBiased[i];
-    
-//    Serial.print(sensorValues[i]);
-//    Serial.print('\t');
-  }
+
+    Serial.print(sensorValues[i]);
+    Serial.print('\t');
+  };
   lineLoc = num / den - 4.5;
 }
 
 void LineFollow(){
-  LocateLine();
-//  Serial.println(lineLoc);
-  if (lineLoc < -0.5) {
-//    Serial.println("Turn Left");
+  LineDetect();
+//  qtrrc.read(sensorValues);
+//  float num = 0;
+//  float den = 0;
+//
+//  for (unsigned char i = 0; i < NUM_SENSORS; i++) {
+//
+//    sensorValueBiased[i] = sensorValues[i] - sensorBias[i];
+//    num = num + sensorValueBiased[i] * i;
+//    den = den + sensorValueBiased[i];
+//
+//    Serial.print(sensorValues[i]);
+//    Serial.print('\t');
+//  }
+//  float lineLoc = num / den - 4.5;
+  Serial.println(lineLoc);
+  if (lineLoc < - 0.5 && lineLoc > -3) {
+    Serial.println("Turn left");
     //Left Motor
-    md.setM1Speed(0);
-    //Right Motor
-    md.setM2Speed(75);
-  }
-  else if(lineLoc > 0.5){
-//      Serial.println("Drive Straight");
-    //Left Motor
-    md.setM1Speed(75);
+    md.setM1Speed(100);
     //Right Motor
     md.setM2Speed(0);
   }
-  else if (lineLoc >= 2){
+  else if (lineLoc > 0.5) {
+    Serial.println("Turn Right");
 
+       //Right Motor
+    md.setM2Speed(-100);
+    //Left Motor
+    md.setM1Speed(0);
+  }
+  else if(lineLoc <= -3){
+  BrakeMotor();
   }
   else {
+    Serial.println("Drive Straight");
     //Left Motor
-    md.setM1Speed(75);
+    md.setM1Speed(45);
     //Right Motor
-    md.setM2Speed(75);
+    md.setM2Speed(-45);
   }
   delay(10);
 }
@@ -355,25 +322,16 @@ void FrontRangeFinder(){
   filteredDataOld = voltData;
   sensorDistance = Af * pow(filteredData, Bf);
 }
-
-void ShutDownStepper(){
-  digitalWrite(pin1,LOW);
-  digitalWrite(pin2,LOW);
-  digitalWrite(pin3,LOW);
-  digitalWrite(pin4,LOW);
-
-}
-
 void StepperMotor(float angle){
-//   angle = Serial.parseInt();
+   if (Serial.available()) {
+   float angle = Serial.parseInt();
    Serial.print("The user entered ");
    Serial.print(angle);
    Serial.println(" degrees");    
    int steps = (int)angle/1.8;
    Serial.print("Steps the arm will move: ");
    Serial.println(steps);
-   myStepper.step(steps);
+   myStepper.step(-steps);
+ } 
 }
-
-
 

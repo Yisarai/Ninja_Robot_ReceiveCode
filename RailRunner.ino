@@ -1,21 +1,13 @@
 void RailRunner(){
-for (int i=1;i<=10;++i){
-   FrontRangeFinder();
- }
+  FrontRangeFinder();
   LineDetect();
-  LocateLine();
-   t_old=millis()/1000;
-   Pos1=0;
-  while (Pos1<25)
+  while (lineLoc < -3)
   {
     md.setM3Speed(250);
-    md.setM1Speed(250);
-    md.setM2Speed(250);
-    if (sensorDistance < 10)
+    if (sensorDistance < 5)
     {
       Serial.println("Drive Straight");
-      PIDControl(2,2);
-      StepperMotor(30);
+      PIDControl(100,100,10*PI,10*PI);
     };
   };
 }
