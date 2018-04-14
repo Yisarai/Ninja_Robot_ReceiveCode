@@ -2,16 +2,15 @@ void PaddleBoard(){
   StepperMotor(-115);
   delay(1000);
   ShutDownStepper();
-  Pos1 = 0;
-  t_old = t;
-  while (Pos1 < 25){
-    PIDControl (PI/12,PI/12);
+
+  for (int i=1;i<=10;++i){
+    sensorDistance = FrontRangeFinder();
   }
-  sensorDiff = LineDetect();
-  lineLoc = LocateLine();  
-  while (sensorDiff < 3000){
-    sensorDiff = LineDetect();
-    lineLoc = LocateLine();  
-  }
+  ResetValues();   
+//  while (sensorDistance < 15);{     //This is for when we attach the side range finder.
+    while (Pos1 < 50){
+      PIDControl (2,2);
+    }
+//  }
    BrakeMotor();
 }

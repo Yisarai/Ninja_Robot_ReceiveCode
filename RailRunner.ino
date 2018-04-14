@@ -5,7 +5,7 @@ void RailRunner(){
   }
   sensorDistance = LineDetect();
   lineLoc = LocateLine();
-  Pos1=0;
+  ResetValues();
   while (Pos1 < 25){
     md.setM3Speed(250);
     md.setM1Speed(250);

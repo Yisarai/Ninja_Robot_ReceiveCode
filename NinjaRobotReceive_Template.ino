@@ -34,6 +34,8 @@ const float Af = 11.30109925;//rear sensor
 const float Bf = -0.9211;
 const float Ar = 11.71301;//right sensor
 const float Br = -1.0421;
+const float As = 11.71301;//Side sensor
+const float Bs = -1.0421;
 const float alpha = 0.1;
 const char frontRangeFinderPin = A7;
 const char rearRangeFinderPin = A5;
@@ -80,12 +82,12 @@ long counts1 = 0;               //Globally initialize encoder counts
 long counts2 = 0;               //Globally initialize encoder counts
 
 //Gains
-double kp1 = 40;
-double kd1 = 0;
+double kp1 = 10;
+double kd1 = 3.5;
 double ki1 = 0;
 
-double kp2 = 40;
-double kd2 = 0;
+double kp2 = 10;
+double kd2 = 3.5;
 double ki2 = 0;
 
 //time variables 
@@ -96,15 +98,14 @@ double deltaT = 0;
 
 //Position variables
 double Pos1 = 0;               //current pos
-double inputPos1 = 0;          //Input position
+double vel1 = 0;               //Input position
 double Pos_old1 = 0;           //previous pos
 
 double Pos2 = 0;               //current pos
-double inputPos2 = 0;          //Input position
+double vel2 = 0;               //Input position
 double Pos_old2 = 0;           //previous pos
 
 //CONTROL VARIABLES
-double Pos_des_old1 = 0;           
 double error_old1 = 0.0;
 double Pos_des1 = 0;
 double error1 = 0.0;
@@ -113,7 +114,6 @@ double integralError1 = 0;
 int M1 = 0;
 float V1 = 0;
 
-double Pos_des_old2 = 0;           
 double error_old2 = 0.0;
 double Pos_des2 = 0;
 double error2 = 0.0;
@@ -234,6 +234,31 @@ void BrakeMotor() {
   md.setM4Brake(0);
 }
 
+void ResetValues() {
+  //Reset Position
+  Pos_des1 = 0;
+  Pos_des2 = 0;
+  Pos1 = 0;
+  Pos2 = 0;
+  
+  //Reset counts
+  counts1 = 0;
+  counts2 = 0;
+  
+  //Reset Error
+  error_old1 = 0;
+  error_old2 = 0;
+  error1 = 0.0;  
+  error2 = 0.0;
+  dErrordt1 = 0;
+  integralError1 = 0;
+  dErrordt2 = 0;
+  integralError2 = 0;
+
+  //Get Rid of rollover
+  t_old = t;  
+}
+
 int HallEffect() {
   raw = analogRead(hallEffectPin); //double check pin
   while (raw < 200) {
@@ -242,65 +267,62 @@ int HallEffect() {
   return raw;
 }
 
-void PIDControl (double inputPos1, double inputPos2){
+void PIDControl (double vel1, double vel2){
   t_ms = micros();
   t = t_ms/1000000.0;                           //current time 
-
+  
   //Encoder sensing
   counts1 = myEnc1.read();                            //get current counts
   Pos1 = float(counts1)*2*PI/(float(countsPerRev_motor)*GearRatio); //Position in rad
   counts2 = myEnc2.read();                            //get current counts
   Pos2 = float(counts2)*2*PI/(float(countsPerRev_motor)*GearRatio); //Position in rad
   deltaT = t-t_old;  
-
-  //Step input
-  if(t<=1.0){
-    Pos_des1 = 0;  
-    Pos_des2 = 0;  
-  }
-  else{
-     Pos_des1 = Pos_des_old1 + inputPos1;
-      Pos_des2 = Pos_des_old2 + inputPos2;
-  }  
   
   // --------Position Controller----------------
   // Left Motor
-  Pos_des1 = Pos_des1 + inputPos1;
-  dErrordt1 =((Pos_des1 - Pos1)-(Pos_des_old1 - Pos_old1))/(t-t_old);
+  Pos_des1 = Pos_des1 + vel1*deltaT;
   error1 = Pos_des1 - Pos1;
-  integralError1 = integralError1 + error1*(t-t_old);
-  V1 = kp1*(Pos_des1 - Pos1)+ kd1*dErrordt1 + ki1*integralError1; 
+  dErrordt1 =(error1 - error_old1)/deltaT;
+  integralError1 = integralError1 + error1*deltaT;
+  V1 = kp1*error1+ kd1*dErrordt1 + ki1*integralError1; 
 
   // Right Motor
-  Pos_des2 = Pos_des2 + inputPos2;
-  dErrordt2 = ((Pos_des2 - Pos2)-(Pos_des_old2 - Pos_old2))/(t-t_old);
+  Pos_des2 = Pos_des2 + vel2*deltaT;
   error2 = Pos_des2 - Pos2;
-  integralError2 = integralError2 + error2*(t-t_old);
-  V2 = kp2*(Pos_des2 - Pos2)+ kd2*dErrordt2 + ki2*integralError2;
+  dErrordt2 = (error2 - error_old2)/deltaT;
+  integralError2 = integralError2 + error2*deltaT;
+  V2 = kp2*error2+ kd2*dErrordt2 + ki2*integralError2;
     
-  // ---------Motor Command---------------------                        
+  // ---------Motor Command---------------------             
+//  V1 = constrain(V1,0,7);   //constrian Motor command to -400 to 400
+//  V2 = constrain(V2,0,7);   //constrian Motor command to -400 to 400
   M1 = V1*400.0/9.7;            //convert Voltage to motor command
   M2 = V2*400.0/9.7;            //convert Voltage to motor command
-  M1 = constrain(M1,-400,400);   //constrian Motor command to -400 to 400
-  M2 = constrain(M2,-400,400);   //constrian Motor command to -400 to 400
+//  Serial.print(M1);
+//  Serial.print("\t");
+//  Serial.print(M2);
+//  Serial.print("\t");
+  M1 = constrain(M1,0,400);   //constrian Motor command to -400 to 400
+  M2 = constrain(M2,0,400);   //constrian Motor command to -400 to 400
   md.setM1Speed(M1);            //Left Motor Speed
   md.setM2Speed(M2);            //Right Motor Speed
-//  Serial.print(t);
-//  Serial.print("\t");
 
-  Serial.print(Pos_des1);
+  double velocity1 = (Pos1 - Pos_old1)/deltaT;
+  double velocity2 = (Pos2 - Pos_old2)/deltaT;
+
+  Serial.print(t_old);
   Serial.print("\t");
-  Serial.print(Pos1);
+
+  Serial.print(velocity1);
   Serial.print("\t");
-  Serial.println();
+  Serial.print(velocity2);
+  Serial.println("\t");
 
   //save current time and position
   t_old = t;
   Pos_old1 = Pos1;
-  Pos_des_old1 = Pos_des1;
   error_old1 = error1;
   Pos_old2 = Pos2;
-  Pos_des_old2 = Pos_des2;
   error_old2 = error2;
 }
 
@@ -328,19 +350,31 @@ double LocateLine() {
 //    Serial.print(sensorValues[i]);
 //    Serial.print('\t');
   }
-  lineLoc = (num/den) - 3;
+  lineLoc = (num/den) - 3.5;
   return lineLoc;
 }
 
 void LineFollow(){
   lineLoc = LocateLine();
-  if (lineLoc < -0.75) {
+  if (lineLoc < -0.6) {
     //Left Motor
     md.setM1Speed(20);
     //Right Motor
     md.setM2Speed(80);
   }
-  else if(lineLoc > 0.75){
+  else if(lineLoc < -0.4 & lineLoc >= -0.6){
+    //Left Motor
+    md.setM1Speed(30);
+    //Right Motor
+    md.setM2Speed(60);
+  }
+  else if(lineLoc > 0.4 & lineLoc <= 0.6){
+    //Left Motor
+    md.setM1Speed(60);
+    //Right Motor
+    md.setM2Speed(30);
+  }
+  else if(lineLoc > 0.6){
     //Left Motor
     md.setM1Speed(80);
     //Right Motor
