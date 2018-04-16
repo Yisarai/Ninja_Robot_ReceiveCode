@@ -4,7 +4,8 @@ void UTurn() {
   delay(1000);
   ShutDownStepper();
   for (int i=1;i<=10;++i){
-   sensorDistance = FrontRangeFinder();//sensor is 2.8cm off the ground 
+   FrontRangeFinder();//sensor is 2.8cm off the ground 
+   Serial.print(sensorDistance); 
  }
   while (sensorDistance < 10){    // front sensort is above floor or line is detected
     LineFollow();                 // run line follow

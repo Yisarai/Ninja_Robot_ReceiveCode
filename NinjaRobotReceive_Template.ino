@@ -30,15 +30,16 @@ unsigned char CS4 = A3;
 DualVNH5019MotorShieldMod3 md = DualVNH5019MotorShieldMod3 (INA3, INB3, EN3DIAG3, CS3, PWM3, INA4, INB4, EN4DIAG4, CS4, PWM4);
 
 //-------------------------------------    Range Finder    -----------------------------------//
-const float Af = 11.30109925;//rear sensor
-const float Bf = -0.9211;
-const float Ar = 11.71301;//right sensor
-const float Br = -1.0421;
-const float As = 11.71301;//Side sensor
-const float Bs = -1.0421;
+const float Af = 5.7293;// new sensor (front)
+const float Bf = -1.5986;
+const float Ar = 11.98913;// rear sensor
+const float Br = -1.0649;
+const float Ari = 11.71301;//right sensor
+const float Bri = -1.0421;
 const float alpha = 0.1;
 const char frontRangeFinderPin = A7;
 const char rearRangeFinderPin = A5;
+const char sideRangeFinderPin = A8;
 
 
 float filteredDataOld = 0;
@@ -82,18 +83,19 @@ long counts1 = 0;               //Globally initialize encoder counts
 long counts2 = 0;               //Globally initialize encoder counts
 
 //Gains
-double kp1 = 10;
-double kd1 = 3.5;
-double ki1 = 0;
+double kp1 = 18;
+double kd1 = 0.5;
+double ki1 = 0.1;
 
-double kp2 = 10;
-double kd2 = 3.5;
+double kp2 = 20;
+double kd2 = 0.25;
 double ki2 = 0;
 
 //time variables 
 unsigned long t_ms = 0;
 double t = 0;                 //current time
 double t_old = 0;             //previous time
+unsigned long t_ref = 0; 
 double deltaT = 0;
 
 //Position variables
@@ -205,10 +207,10 @@ void loop() {
           md.setM2Speed(100);
           break;  
         case 'x'://backward
-          md.setM3Speed(50);
+          md.setM3Speed(100);
           break;  
         case 'w'://forward
-          md.setM3Speed(-100);
+          md.setM3Speed(-200);
           break;  
         case 'z':
           md.setM4Speed(50);
@@ -256,7 +258,8 @@ void ResetValues() {
   integralError2 = 0;
 
   //Get Rid of rollover
-  t_old = t;  
+  t_old = t; 
+  t_ref=micros();
 }
 
 int HallEffect() {
@@ -268,7 +271,7 @@ int HallEffect() {
 }
 
 void PIDControl (double vel1, double vel2){
-  t_ms = micros();
+  t_ms = micros()-t_ref;
   t = t_ms/1000000.0;                           //current time 
   
   //Encoder sensing
@@ -302,20 +305,20 @@ void PIDControl (double vel1, double vel2){
 //  Serial.print("\t");
 //  Serial.print(M2);
 //  Serial.print("\t");
-  M1 = constrain(M1,0,400);   //constrian Motor command to -400 to 400
-  M2 = constrain(M2,0,400);   //constrian Motor command to -400 to 400
+  M1 = constrain(M1,-400,400);   //constrian Motor command to -400 to 400
+  M2 = constrain(M2,-400,400);   //constrian Motor command to -400 to 400
   md.setM1Speed(M1);            //Left Motor Speed
   md.setM2Speed(M2);            //Right Motor Speed
 
   double velocity1 = (Pos1 - Pos_old1)/deltaT;
   double velocity2 = (Pos2 - Pos_old2)/deltaT;
 
-  Serial.print(t_old);
+  Serial.print(t);
   Serial.print("\t");
 
-  Serial.print(velocity1);
+  Serial.print(error1);
   Serial.print("\t");
-  Serial.print(velocity2);
+  Serial.print(error2);
   Serial.println("\t");
 
   //save current time and position
@@ -389,22 +392,28 @@ void LineFollow(){
   delay(10);
 }
 
-double RearRangeFinder(){
+void RearRangeFinder(){
   rawData = analogRead(rearRangeFinderPin);
   voltData = 0.0049 * rawData;
   filteredData = voltData * alpha + (1 - alpha) * filteredDataOld;
   filteredDataOld = voltData;
   sensorDistance = Ar * pow(filteredData, Br);
-  return sensorDistance;
 }
 
-double FrontRangeFinder(){
+void FrontRangeFinder(){
   rawData = analogRead(frontRangeFinderPin);
   voltData = 0.0049 * rawData;
   filteredData = voltData * alpha + (1 - alpha) * filteredDataOld;
   filteredDataOld = voltData;
   sensorDistance = Af * pow(filteredData, Bf);
-  return sensorDistance;
+}
+
+void SideRangeFinder(){
+  rawData = analogRead(sideRangeFinderPin);
+  voltData = 0.0049 * rawData;
+  filteredData = voltData * alpha + (1 - alpha) * filteredDataOld;
+  filteredDataOld = voltData;
+  sensorDistance = Ari * pow(filteredData, Bri);
 }
 
 void ShutDownStepper(){
