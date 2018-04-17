@@ -1,4 +1,5 @@
 void WarpedWall(){
+  Serial.print("Warped Wall");
   ShutDownStepper();
   StepperMotor(-20);
   ResetValues();

@@ -53,8 +53,8 @@ float voltData = 0;
 #define TIMEOUT 2500
 #define EMITTER_PIN 44
 QTRSensorsRC qtrrc((unsigned char[]) {36,37,38,39,40,41,42,43}, NUM_SENSORS, TIMEOUT, EMITTER_PIN);
-//const int sensorBias[NUM_SENSORS] = {154,117,193,154,183,224,318};
-const int sensorBias[NUM_SENSORS] = {417, 298, 377, 337, 299, 336, 417, 583};
+const int sensorBias[NUM_SENSORS] = {154,117,193,154,183,224,318};//course
+//const int sensorBias[NUM_SENSORS] = {417, 298, 377, 337, 299, 336, 417, 583};
 unsigned int sensorValues[NUM_SENSORS];
 int sensorValueBiased[NUM_SENSORS] = {};
 float lineLoc = 0;
@@ -160,8 +160,9 @@ void loop() {
     char state = char (mySerial.read());
     Serial.print("The user entered ");
     Serial.println(state);
-//    raw = HallEffect();
-//    while (raw > 200){          //If this is commented out the switch won't continuously to execute
+//    HallEffect();
+    raw = 300;
+    while (raw > 200){          //If this is commented out the switch won't continuously to execute
  
       switch(state){
         case 'a':
@@ -213,7 +214,7 @@ void loop() {
           md.setM3Speed(-200);
           break;  
         case 'z':
-          md.setM4Speed(50);
+          md.setM4Speed(-50);
           break;  
         case 's':
           StepperMotor(30);//negative lowers/positive raises
@@ -221,7 +222,7 @@ void loop() {
 
       }
   }
-//}
+}
 }
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
 //++++++++++++++++++++++++++++++         CODE DONE          ++++++++++++++++++++++++++++++//
@@ -262,12 +263,13 @@ void ResetValues() {
   t_ref=micros();
 }
 
-int HallEffect() {
+void HallEffect() {
   raw = analogRead(hallEffectPin); //double check pin
+  Serial.println(raw);
   while (raw < 200) {
     raw = analogRead(hallEffectPin);
+    Serial.println(raw);
   }
-  return raw;
 }
 
 void PIDControl (double vel1, double vel2){
@@ -313,13 +315,13 @@ void PIDControl (double vel1, double vel2){
   double velocity1 = (Pos1 - Pos_old1)/deltaT;
   double velocity2 = (Pos2 - Pos_old2)/deltaT;
 
-  Serial.print(t);
-  Serial.print("\t");
-
-  Serial.print(error1);
-  Serial.print("\t");
-  Serial.print(error2);
-  Serial.println("\t");
+//  Serial.print(t);
+//  Serial.print("\t");
+//
+//  Serial.print(error1);
+//  Serial.print("\t");
+//  Serial.print(error2);
+//  Serial.println("\t");
 
   //save current time and position
   t_old = t;
@@ -329,7 +331,7 @@ void PIDControl (double vel1, double vel2){
   error_old2 = error2;
 }
 
-double LineDetect(){
+void LineDetect(){
   qtrrc.read(sensorValues);
   biasSum = 0;
   actualSum = 0;
@@ -338,10 +340,9 @@ double LineDetect(){
     actualSum = actualSum + sensorValues[i];
   }
   sensorDiff = abs(actualSum - biasSum);
-  return sensorDiff;
 }
 
-double LocateLine() {
+void LocateLine() {
   qtrrc.read(sensorValues);
   float num = 0;
   float den = 0;
@@ -354,42 +355,50 @@ double LocateLine() {
 //    Serial.print('\t');
   }
   lineLoc = (num/den) - 3.5;
-  return lineLoc;
 }
 
 void LineFollow(){
-  lineLoc = LocateLine();
-  if (lineLoc < -0.6) {
-    //Left Motor
-    md.setM1Speed(20);
-    //Right Motor
-    md.setM2Speed(80);
-  }
-  else if(lineLoc < -0.4 & lineLoc >= -0.6){
-    //Left Motor
-    md.setM1Speed(30);
-    //Right Motor
-    md.setM2Speed(60);
-  }
-  else if(lineLoc > 0.4 & lineLoc <= 0.6){
-    //Left Motor
-    md.setM1Speed(60);
-    //Right Motor
-    md.setM2Speed(30);
-  }
-  else if(lineLoc > 0.6){
-    //Left Motor
-    md.setM1Speed(80);
-    //Right Motor
-    md.setM2Speed(20);
-  }
-  else {
-    //Left Motor
-    md.setM1Speed(45);
-    //Right Motor
-    md.setM2Speed(45);
-  }
-  delay(10);
+  LocateLine();
+  float thresh = 2.6;
+  float c = 1/thresh;
+  float P = c*lineLoc;
+  float basespeed = 55;
+  float RMS = basespeed*(1-P);
+  float LMS = basespeed*(1+P);
+  md.setM1Speed(LMS);
+  md.setM2Speed(RMS);
+//  if (lineLoc < -0.6) {
+//    //Left Motor
+//    md.setM1Speed(20);
+//    //Right Motor
+//    md.setM2Speed(80);
+//  }
+//  else if(lineLoc < -0.4 & lineLoc >= -0.6){
+//    //Left Motor
+//    md.setM1Speed(30);
+//    //Right Motor
+//    md.setM2Speed(60);
+//  }
+//  else if(lineLoc > 0.4 & lineLoc <= 0.6){
+//    //Left Motor
+//    md.setM1Speed(60);
+//    //Right Motor
+//    md.setM2Speed(30);
+//  }
+//  else if(lineLoc > 0.6){
+//    //Left Motor
+//    md.setM1Speed(80);
+//    //Right Motor
+//    md.setM2Speed(20);
+//  }
+//  else {
+//    //Left Motor
+//    md.setM1Speed(45);
+//    //Right Motor
+//    md.setM2Speed(45);
+//  }
+//  delay(10);
+
 }
 
 void RearRangeFinder(){
