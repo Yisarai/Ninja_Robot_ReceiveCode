@@ -2,34 +2,43 @@ void RailRunner(){
   Serial.println("RailRunner");
     for (int i=1;i<=10;++i){
     FrontRangeFinder();
-    Serial.println(sensorDistance);  
+    Serial.println(sensorDistancef);  
   }
-  Serial.print(sensorDistance); 
-  while(sensorDistance  < 10){
+  LineDetect();
+  Serial.print(sensorDistancef); 
+  while(sensorDistancef < 10 && sensorDiff > 2500){
    FrontRangeFinder();
+   LineDetect();
    Serial.println("Loop 1");
-   Serial.println(sensorDistance); ;
+   Serial.println(sensorDistancef); ;
    LineFollow();
   }
-  LocateLine();
-  ResetValues();
-  while (sensorDistance > 10){
+  while (sensorDistancef > 10){
     Serial.println("Loop 2");
     FrontRangeFinder();
-    Serial.println(sensorDistance);
-    md.setM4Speed(-250);
+    LineDetect();
+    Serial.println(sensorDistancef);
+    md.setM3Speed(-250);
     md.setM1Speed(250);
     md.setM2Speed(250);
   }
-  ResetValues();
-  while (Pos1 < 5){
+  if(sensorDistancef > 2 && sensorDistancef < 10){
+  StepperMotor(30);
     Serial.println("Loop 3");
-      Serial.println(Pos1);
-      Serial.println("Drive Straight");
-      PIDControl(5,5);
-    }
-    Serial.println("Exit");
-//    StepperMotor(30);
+    FrontRangeFinder();
   }
+  delay(5000);
+  LineDetect();
+  while (sensorDistancef > 2 && sensorDistancef < 10 && sensorDiff < 2500){
+    Serial.println("Loop 4");
+    FrontRangeFinder();
+    LineDetect();
+    Serial.println(sensorDistancef);
+    md.setM3Speed(-250);
+    md.setM1Speed(250);
+    md.setM2Speed(250);
+  }
+  BrakeMotor();
+}
 
 

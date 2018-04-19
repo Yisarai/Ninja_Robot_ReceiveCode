@@ -10,17 +10,19 @@ char state = 0;
 //-------------------------------------    Hall Effect    -----------------------------------//
 const char hallEffectPin = A6;
 int raw = 0;
+const int noMag = 650;
+int absMag = 0;
 
 //-------------------------------------    Motor Shield    -----------------------------------//
 //Motors 1 and 2 follow the default pins mapping 
-//Motor3 - Lead Screw - Negative forward, positive backwards
+//Motor3 - Top Wheels - Negative forward, positive backwards
 unsigned char INA3 = 25;
 unsigned char INB3 = 26;
 unsigned char EN3DIAG3 = 24;
 unsigned char PWM3 = 11;
 unsigned char CS3 = A2;
 
-//Motor 4 - Top Wheels - Positive Value Runs Backwards
+//Motor 4 - Lead Screw - Positive Value Runs Backwards
 unsigned char INA4 = 29;
 unsigned char INB4 = 30;
 unsigned char EN4DIAG4 = 28;
@@ -36,17 +38,39 @@ const float Ar = 11.98913;// rear sensor
 const float Br = -1.0649;
 const float Ari = 11.71301;//right sensor
 const float Bri = -1.0421;
+const float Aa = 11.3010992;//arm sensor
+const float Ba = -0.9211;
 const float alpha = 0.1;
 const char frontRangeFinderPin = A7;
 const char rearRangeFinderPin = A5;
 const char sideRangeFinderPin = A8;
+const char armRangeFinderPin = A9;
 
+float distanceDesired = 0;
 
-float filteredDataOld = 0;
-float filteredData = 0;
-int rawData = 0;
-float sensorDistance = 0;
-float voltData = 0;
+float filteredDataOldr = 0;
+float filteredDatar = 0;
+int rawDatar = 0;
+float sensorDistancer = 0;
+float voltDatar = 0;
+
+float filteredDataOldf = 0;
+float filteredDataf = 0;
+int rawDataf = 0;
+float sensorDistancef = 0;
+float voltDataf = 0;
+
+float filteredDataOlds = 0;
+float filteredDatas = 0;
+int rawDatas = 0;
+float sensorDistances = 0;
+float voltDatas = 0;
+
+float filteredDataOlda = 0;
+float filteredDataa = 0;
+int rawDataa = 0;
+float sensorDistancea = 0;
+float voltDataa = 0;
 
 //-------------------------------------    IR Sensor    -----------------------------------//
 #define NUM_SENSORS 8
@@ -59,8 +83,14 @@ unsigned int sensorValues[NUM_SENSORS];
 int sensorValueBiased[NUM_SENSORS] = {};
 float lineLoc = 0;
 int biasSum = 0;
-int actualSum = 0;
+int actualSum = 0; 
 int sensorDiff = 0;
+int actualSumLeft = 0;
+int biasSumLeft = 0;
+int sensorDiffLeft = 0;
+int actualSumRight = 0;
+int biasSumRight = 0; 
+int sensorDiffRight = 0;
 
 //-------------------------------------    Stepper Motor    -----------------------------------//
 const int stepsPerRevolution = 200;
@@ -83,13 +113,17 @@ long counts1 = 0;               //Globally initialize encoder counts
 long counts2 = 0;               //Globally initialize encoder counts
 
 //Gains
-double kp1 = 18;
-double kd1 = 0.5;
-double ki1 = 0.1;
+double Kp = 80;
+double Kd = 2.25;
+double Ki = 0.25;
 
-double kp2 = 20;
-double kd2 = 0.25;
-double ki2 = 0;
+double kp1 = 8;
+double kd1 = 2;
+double ki1 = 1;
+
+double kp2 = 8.78;
+double kd2 = 2;
+double ki2 = 1;
 
 //time variables 
 unsigned long t_ms = 0;
@@ -99,6 +133,10 @@ unsigned long t_ref = 0;
 double deltaT = 0;
 
 //Position variables
+double Pos = 0;               //current pos
+double vel = 0;               //Input position
+double Pos_old = 0;           //previous pos
+
 double Pos1 = 0;               //current pos
 double vel1 = 0;               //Input position
 double Pos_old1 = 0;           //previous pos
@@ -108,6 +146,17 @@ double vel2 = 0;               //Input position
 double Pos_old2 = 0;           //previous pos
 
 //CONTROL VARIABLES
+double error_old = 0.0;
+double Pos_des = 0;
+double error = 0.0;
+double dErrordt = 0;
+double integralError = 0;
+double M = 0;
+double MR_Final = 0;
+double ML_Final = 0;
+
+float V = 0;
+
 double error_old1 = 0.0;
 double Pos_des1 = 0;
 double error1 = 0.0;
@@ -149,7 +198,6 @@ void setup() {
   md.init(); // *changed location
   // Open serial communications with the other Arduino board
   mySerial.begin(9600);
-
 }
 
 //++++++++++++++++++++++++++++++++++++    COMPETITION CODE    +++++++++++++++++++++++++++++++++++++//
@@ -161,8 +209,8 @@ void loop() {
     Serial.print("The user entered ");
     Serial.println(state);
 //    HallEffect();
-    raw = 300;
-    while (raw > 200){          //If this is commented out the switch won't continuously to execute
+  absMag = 301;
+    while (absMag > 300){          //If this is commented out the switch won't continuously to execute
  
       switch(state){
         case 'a':
@@ -198,23 +246,30 @@ void loop() {
            
         case 'q':
           while (mySerial.available() == 0){
-            FrontRangeFinder();
-            Serial.println(sensorDistance);
+            ArmRangeFinder();
+            Serial.println(sensorDistancea);
           }
+          
           break;   
+        case 'r':
+          while (mySerial.available() == 0){        
+          HallEffect();
+          }
+          break;
+          
         case 'y':
           md.setM1Speed(100);
           //Right Motor
           md.setM2Speed(100);
           break;  
         case 'x'://backward
-          md.setM3Speed(100);
+          md.setM4Speed(100);
           break;  
         case 'w'://forward
-          md.setM3Speed(-200);
+          md.setM4Speed(-400);
           break;  
         case 'z':
-          md.setM4Speed(-50);
+          md.setM3Speed(-30);
           break;  
         case 's':
           StepperMotor(30);//negative lowers/positive raises
@@ -222,7 +277,7 @@ void loop() {
 
       }
   }
-}
+  }
 }
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
 //++++++++++++++++++++++++++++++         CODE DONE          ++++++++++++++++++++++++++++++//
@@ -259,30 +314,30 @@ void ResetValues() {
   integralError2 = 0;
 
   //Get Rid of rollover
-  t_old = t; 
-  t_ref=micros();
+  t_ref = micros(); 
 }
 
 void HallEffect() {
   raw = analogRead(hallEffectPin); //double check pin
-  Serial.println(raw);
-  while (raw < 200) {
+  absMag = abs(raw-noMag);
+  while (absMag < 300) {
     raw = analogRead(hallEffectPin);
     Serial.println(raw);
+    absMag = abs(raw-noMag);
   }
 }
 
 void PIDControl (double vel1, double vel2){
   t_ms = micros()-t_ref;
-  t = t_ms/1000000.0;                           //current time 
-  
+  t = t_ms/1000000.00;                           //current time 
+ 
   //Encoder sensing
   counts1 = myEnc1.read();                            //get current counts
   Pos1 = float(counts1)*2*PI/(float(countsPerRev_motor)*GearRatio); //Position in rad
   counts2 = myEnc2.read();                            //get current counts
   Pos2 = float(counts2)*2*PI/(float(countsPerRev_motor)*GearRatio); //Position in rad
   deltaT = t-t_old;  
-  
+
   // --------Position Controller----------------
   // Left Motor
   Pos_des1 = Pos_des1 + vel1*deltaT;
@@ -335,14 +390,28 @@ void LineDetect(){
   qtrrc.read(sensorValues);
   biasSum = 0;
   actualSum = 0;
+  actualSumLeft = 0;
+  biasSumLeft = 0;
+  actualSumRight = 0;
+  biasSumRight = 0;    
   for (unsigned char i = 0; i < NUM_SENSORS; i++){
     biasSum = biasSum + sensorBias[i];
     actualSum = actualSum + sensorValues[i];
   }
   sensorDiff = abs(actualSum - biasSum);
+  for (unsigned char i = 0; i < 2; i++){
+    biasSumLeft = biasSumLeft + sensorBias[i];
+    actualSumLeft = actualSumLeft + sensorValues[i];
+  }  
+  sensorDiffLeft = abs(actualSumLeft - biasSumLeft);
+  for (unsigned char i = 6; i < NUM_SENSORS; i++){
+    biasSumRight = biasSumRight + sensorBias[i];
+    actualSumRight = actualSumRight + sensorValues[i];
+  }
+  sensorDiffRight = abs(actualSumRight - biasSumRight);
 }
 
-void LocateLine() {
+double LocateLine() {
   qtrrc.read(sensorValues);
   float num = 0;
   float den = 0;
@@ -354,15 +423,17 @@ void LocateLine() {
 //    Serial.print(sensorValues[i]);
 //    Serial.print('\t');
   }
-  lineLoc = (num/den) - 3.5;
+  lineLoc = (num/den) - 4.5;
+
+  return lineLoc;
 }
 
 void LineFollow(){
-  LocateLine();
-  float thresh = 2.6;
+  lineLoc = LocateLine();
+  float thresh = 2.7;
   float c = 1/thresh;
   float P = c*lineLoc;
-  float basespeed = 55;
+  float basespeed = 50;
   float RMS = basespeed*(1-P);
   float LMS = basespeed*(1+P);
   md.setM1Speed(LMS);
@@ -402,27 +473,35 @@ void LineFollow(){
 }
 
 void RearRangeFinder(){
-  rawData = analogRead(rearRangeFinderPin);
-  voltData = 0.0049 * rawData;
-  filteredData = voltData * alpha + (1 - alpha) * filteredDataOld;
-  filteredDataOld = voltData;
-  sensorDistance = Ar * pow(filteredData, Br);
+  rawDatar = analogRead(rearRangeFinderPin);
+  voltDatar = 0.0049 * rawDatar;
+  filteredDatar = voltDatar * alpha + (1 - alpha) * filteredDataOldr;
+  filteredDataOldr = voltDatar;
+  sensorDistancer = Ar * pow(filteredDatar, Br);
 }
 
 void FrontRangeFinder(){
-  rawData = analogRead(frontRangeFinderPin);
-  voltData = 0.0049 * rawData;
-  filteredData = voltData * alpha + (1 - alpha) * filteredDataOld;
-  filteredDataOld = voltData;
-  sensorDistance = Af * pow(filteredData, Bf);
+  rawDataf = analogRead(frontRangeFinderPin);
+  voltDataf = 0.0049 * rawDataf;
+  filteredDataf = voltDataf * alpha + (1 - alpha) * filteredDataOldf;
+  filteredDataOldf = voltDataf;
+  sensorDistancef = Af * pow(filteredDataf, Bf);
 }
 
 void SideRangeFinder(){
-  rawData = analogRead(sideRangeFinderPin);
-  voltData = 0.0049 * rawData;
-  filteredData = voltData * alpha + (1 - alpha) * filteredDataOld;
-  filteredDataOld = voltData;
-  sensorDistance = Ari * pow(filteredData, Bri);
+  rawDatas = analogRead(sideRangeFinderPin);
+  voltDatas = 0.0049 * rawDatas;
+  filteredDatas = voltDatas * alpha + (1 - alpha) * filteredDataOlds;
+  filteredDataOlds = voltDatas;
+  sensorDistances = Ari * pow(filteredDatas, Bri);
+}
+
+void ArmRangeFinder(){
+  rawDataa = analogRead(armRangeFinderPin);
+  voltDataa = 0.0049 * rawDataa;
+  filteredDataa = voltDataa * alpha + (1 - alpha) * filteredDataOlda;
+  filteredDataOlda = voltDataa;
+  sensorDistancea = Aa * pow(filteredDataa, Ba);
 }
 
 void ShutDownStepper(){
@@ -432,15 +511,68 @@ void ShutDownStepper(){
   digitalWrite(pin4,LOW);
 }
 
+void WallFollow(double distanceDesired) {
+  rawDataa = analogRead(armRangeFinderPin);
+  voltDataa = 0.0049 * rawDataa;
+  filteredDataa = voltDataa * alpha + (1 - alpha) * filteredDataOlda;
+  filteredDataOlda = voltDataa;
+  sensorDistancea = Aa * pow(filteredDataa, Ba);
+//  Serial.print("Sensor distance is ");
+//  Serial.println(sensorDistancea);
+    if (sensorDistancea > distanceDesired-1 && sensorDistancea < distanceDesired+1) {//arm sensor wall follow
+    //Right Motor
+    md.setM2Speed(150);
+    //Left Motor
+    md.setM1Speed(150);
+  }
+  else if (sensorDistancea > distanceDesired+1 && sensorDistancea < 15){
+    //Right Motor
+    md.setM2Speed(150);
+    //Left Motor
+    md.setM1Speed(100);
+  }
+  else if (sensorDistancea < distanceDesired-1){
+    //Right Motor
+    md.setM2Speed(100);
+    //Left Motor
+    md.setM1Speed(150); 
+  }
+  else if (sensorDistancea >= 15){
+    //Right Motor
+    md.setM2Speed(100);
+    //Left Motor
+    md.setM1Speed(115);
+  }
+}
+
 void StepperMotor(float angle){
 //   angle = Serial.parseInt();
-   Serial.print("The user entered ");
-   Serial.print(angle);
-   Serial.println(" degrees");    
+//   Serial.print("The user entered ");
+//   Serial.print(angle);
+//   Serial.println(" degrees");    
    int steps = (int)angle/1.8;
-   Serial.print("Steps the arm will move: ");
-   Serial.println(steps);
+//   Serial.print("Steps the arm will move: ");
+//   Serial.println(steps);
    myStepper.step(steps);
+}
+
+double PID(int Pos_des, int Pos, int Kp, int Kd, int Ki) {
+  t_ms = micros()-t_ref;
+  t = t_ms/1000000.00;                           //current time 
+  deltaT = t-t_old;  
+
+  //QTR sensing
+
+  deltaT = t-t_old;  
+
+  // --------Position Controller----------------
+  error = Pos_des - Pos;
+  dErrordt = (error - error_old)/deltaT;
+  integralError = integralError + error*deltaT;
+  M = Kp*error+ Kd*dErrordt + Ki*integralError;
+  M = constrain(M,-100,100);   //constrian Motor command to -400 to 400
+
+  return M;
 }
 
 

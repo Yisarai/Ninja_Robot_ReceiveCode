@@ -1,17 +1,16 @@
 void PaddleBoard(){
-  Serial.print("PaddleBoard");
+Serial.println("PaddleBoard");
   StepperMotor(-115);
   delay(1000);
   ShutDownStepper();
   for (int i=1;i<=10;++i){
     SideRangeFinder();
-    Serial.println(sensorDistance);  
+  //  Serial.println(sensorDistances);
   }
-  ResetValues();  
-  Serial.print(sensorDistance); 
-  while (sensorDistance < 15){     //This is for when we attach the side range finder.
-    PIDControl (4,4);
+  ResetValues();
+  while (sensorDistances < 20){
+    WallFollow(10.5);
     SideRangeFinder();
+   // Serial.println(sensorDistancea);
   }
-  BrakeMotor();
 }
